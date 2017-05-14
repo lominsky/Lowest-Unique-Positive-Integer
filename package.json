@@ -1,0 +1,16 @@
+{
+  "name": "LUPI",
+  "version": "0.0.1",
+  "description": "Lowest Unique Positive Integer game",
+  "main": "index.js",
+  "author": "Louis Minsky",
+  "private": true,
+  "license": "BSD",
+  "dependencies": {
+    "express": "latest",
+    "socket.io": "latest"
+  },
+  "scripts": {
+    "start": "node app.js"
+  }
+}
