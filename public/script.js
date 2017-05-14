@@ -30,7 +30,7 @@ $(function() {
     if (data.numUsers === 1) {
       message += "There is 1 player.";
     } else {
-      message += "There are " + data.numUsers + " player.";
+      message += "There are " + data.numUsers + " players.";
     }
     log(message);
   }
@@ -61,9 +61,9 @@ $(function() {
       $inputMessage.val('');
       if(parseInt(message) > 0) {
         if(currentChoice == -1)
-          log("You have selected " + message, {});
+          log("You have selected " + message);
         else
-          log("You have changed your selection to " + message, {})
+          log("You have changed your selection to " + message)
         currentChoice = parseInt(message);
 
         // tell server to execute 'new message' and send along one parameter
@@ -114,29 +114,12 @@ $(function() {
       message: "Everyone Loses."
     }
     if(winner) {
-      message.message = data[winner].name + " won with " + data[winner].guess
+      message.username = data[winner].name + " won with " + data[winner].guess;
+      message.message = "";
     }
 
     addChatMessage(message, {});
   }
-
-  Array.prototype.contains = function(v) {
-    for(var i = 0; i < this.length; i++) {
-        if(this[i] === v) return true;
-    }
-    return false;
-  };
-
-  Array.prototype.unique = function() {
-    var arr = [];
-    for(var i = 0; i < this.length; i++) {
-        if(!arr.contains(this[i])) {
-            arr.push(this[i]);
-        }
-    }
-    return arr; 
-  }
-
 
   // Adds a message element to the messages and scrolls to the bottom
   // el - The element to add as a message
@@ -226,13 +209,19 @@ $(function() {
     log(message, {
       prepend: true
     });
-    log('The game has already started. You have ' + data.time + ' seconds.')
+    if(data.time != -1) {
+      document.getElementById("input").style.display = "block";
+      //log('The game has already started. You have ' + data.time + ' seconds.');
+    } else {
+      log('There are not enough players. Please wait for more people to join.');
+    }
     addParticipantsMessage(data);
 
   });
 
   // game start message
   socket.on('start', function (data) {
+    document.getElementById("input").style.display = "block";
     log('A new game has started. You have ' + data.time + ' seconds.');
   });
 
@@ -256,7 +245,7 @@ $(function() {
       } 
       parseWinner(data);
     } else {
-      log('There were not enough guesses to play.');
+      log('There are not enough guesses to play.');
     }
   });
 

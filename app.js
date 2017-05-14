@@ -16,7 +16,8 @@ app.use(express.static(__dirname + '/public'));
 
 var users = [];
 var gameTime = 30;
-var endTime;
+var endTime = -1;
+var timer;
 
 function findSocketId(id) {
   for(i in users) {
@@ -42,7 +43,13 @@ function endGame() {
     }
   }
 
-  return guesses;
+  io.sockets.emit("stop", guesses);
+
+  if(users.length > 2) {
+    play();
+  } else {
+    endTime = -1;
+  }
 }
 
 var play = function() {
@@ -50,10 +57,8 @@ var play = function() {
   io.sockets.emit("start", {
     time: gameTime
   });
-  setTimeout(function() {
-    var result = endGame();
-    io.sockets.emit("stop", result);
-    play();
+  timer = setTimeout(function() {
+    endGame();
   }, gameTime*1000);
 }
 
@@ -71,12 +76,17 @@ io.on('connection', function (socket) {
       guess: 0
     }
     users.push(user);
-
     addedUser = true;
 
-    var now = new Date();
+    if(users.length > 2) {
+      play();
+    }
 
-    var timeRemaining = Math.floor((endTime - now.getTime())/1000);
+    var now = new Date();
+    var timeRemaining = -1;
+    if(endTime != -1) {
+       timeRemaining = Math.floor((endTime - now.getTime())/1000);
+    }
 
     socket.emit('login', {
       numUsers: users.length,
@@ -109,9 +119,12 @@ io.on('connection', function (socket) {
         numUsers: users.length
       });
     }
+
+    if(users.length < 3) {
+      endGame();
+      clearTimeout(timer);
+    }
   });
 
 
 });
-
-play();
