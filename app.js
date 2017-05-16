@@ -7,13 +7,8 @@ var port = process.env.PORT || 80;
 var firebase = require("firebase");
 
 firebase.initializeApp({
-    apiKey: "AIzaSyDkj3FbA-CFDcv20y2nT9zmZtNJ84r5XjQ",
-    authDomain: "lupi-490c9.firebaseapp.com",
-    databaseURL: "https://lupi-490c9.firebaseio.com",
-    projectId: "lupi-490c9",
-    storageBucket: "lupi-490c9.appspot.com",
-    messagingSenderId: "155410457297"
-  });
+
+});
 
 var db = firebase.database();
 
@@ -21,71 +16,20 @@ server.listen(port, function () {
   console.log('Server listening at port %d', port);
 });
 
-// Routing
 app.use(express.static(__dirname + '/public'));
 
-// LUPI
-
 var users = [];
-var gameTime = 30;
-var endTime = -1;
-var timer;
-
-function findSocketId(id) {
-  for(i in users) {
-    if(users[i].id == id)
-      return i;
-  }
-  return null;
-}
-
-function startGame() {
-  for(i in users) {
-    users[i].guess = 0;
-    users[i].time = "No Guess";
-  }
-  var startTime = new Date();
-  endTime = startTime.getTime() + 1000 * gameTime;
-}
-
-function endGame() {
-  var guesses = [];
-  for(i in users) {
-    if(users[i].guess != 0) {
-      var temp = {
-        name: users[i].name,
-        guess: users[i].guess
-      }
-      guesses.push(temp);
-    }
-  }
-
-  io.sockets.emit("stop", guesses);
-
-  if(guesses.length > 2) {
-    var temp = {
-      players: users,
-      timestamp: firebase.database.ServerValue.TIMESTAMP
-    }
-    firebase.database().ref('games').push(temp);
-    play();
-  } else {
-    endTime = -1;
-  }
-}
-
-var play = function() {
-  startGame();
-  io.sockets.emit("start", {
-    time: gameTime
-  });
-  timer = setTimeout(function() {
-    endGame();
-  }, gameTime*1000);
-}
+var timeLeft = -1;
+var interval;
 
 io.on('connection', function (socket) {
-  var addedUser = false;
+  var user = {
+    id: socket.id,
+    choice: 0,
+  }
+  users.push(user);
+  sendUsers();
+  countChoices();
 
   var log = {
     ip: socket.request.connection.remoteAddress,
@@ -96,86 +40,110 @@ io.on('connection', function (socket) {
 
   firebase.database().ref('current').set(users);
 
-  // when the client emits 'add user', this listens and executes
-  socket.on('add user', function (username) {
-    if (addedUser) return;
-
-
-    var now = new Date();
-
-    // we store the username in the socket session for this client
-    var user = {
-      id: socket.id,
-      name: username,
-      guess: 0,
-      time: "No Guess"
-    }
-    users.push(user);
-    //console.log(now + ": " + username + " (" + user.id + ") has connected.");
-    var index = findSocketId(socket.id);
-    firebase.database().ref('users/' + users[index].id + '/name').set(username);
-
-    firebase.database().ref('current').set(users);
-
-    addedUser = true;
-
-    if(users.length > 2 && endTime == -1) {
-      play();
-    }
-
-    var timeRemaining = -1;
-    if(endTime != -1) {
-       timeRemaining = Math.floor((endTime - now.getTime())/1000);
-    }
-
-    socket.emit('login', {
-      numUsers: users.length,
-      time: timeRemaining
-    });
-
-    // echo globally (all clients) that a person has connected
-    socket.broadcast.emit('users', {
-      numUsers: users.length
-    });
-
-  });
-
-  socket.on('new message', function(message) {
-    var index = findSocketId(socket.id);
-    if(parseInt(message) > 0) {
-      users[index].guess = parseInt(message);
-      var now = new Date();
-      users[index].time = now.getTime();
-
-    }
-  });
-
   socket.on('local ip', function(ip) {
-    var index = findSocketId(socket.id);
+    var index = findSocketIndex(socket.id);
     firebase.database().ref('users/' + users[index].id + '/local_ip').set(ip);
-    //users[index].local_ip = ip;
   });
 
-  // when the user disconnects.. perform this
-  socket.on('disconnect', function () {
-      var index = findSocketId(socket.id);
-
-      if(index) {
-        firebase.database().ref('users/' + users[index].id + '/disconnect').set(firebase.database.ServerValue.TIMESTAMP);
-        users.splice(index, 1);
-
-	socket.broadcast.emit('users', {
-	  numUsers: users.length
-	});
-      }
-
-    if(users.length < 3) {
-      endGame();
-      clearTimeout(timer);
+  // when the user disconnects
+  socket.on('disconnect', function (socket) {
+    checkOpenConnections();
+    sendUsers();
+    var c = 0;
+    for(i in users) {
+      if(users[i].choice != 0)
+        c++;
     }
-
-    firebase.database().ref('current').set(users);
+    if(c < 3) {
+      clearInterval(interval);
+      timeLeft = -1;
+      io.sockets.emit('not enough players');
+    }
+    countChoices();
   });
 
-
+  socket.on('new choice', function (data) {
+    var index = findSocketIndex(socket.id);
+    var choice = parseInt(data);
+    if(choice > 0) {
+      users[index].choice = data;
+      countChoices();
+    }
+  });
 });
+
+function checkOpenConnections() {
+  for(var i = users.length-1; i >= 0; i--) {
+    if(io.sockets.sockets[users[i].id] == null) {
+      firebase.database().ref('users/' + users[i].id + '/disconnect').set(firebase.database.ServerValue.TIMESTAMP);
+      users.splice(i, 1);
+      firebase.database().ref('current').set(users);
+    }
+  }
+}
+
+function countChoices() {
+  var count = 0;
+  for(i in users) {
+    if(users[i].choice != 0)
+      count++;
+  }
+  io.sockets.emit('choice count', {
+    count: count
+  });
+  if(count > 2 && timeLeft == -1) {
+    startGame();
+  }
+}
+
+function startGame() {
+  timeLeft = 31;
+  interval = setInterval(function(){
+    io.sockets.emit('time remaining', {
+      time: timeLeft-1
+    });
+    timeLeft--;
+    if(timeLeft === 0) {
+        clearInterval(interval);
+        endGame();
+    }
+  }, 1000);
+}
+
+function endGame() {
+  timeLeft = -1;
+  var choices = [];
+  for(i in users) {
+    if(users[i].choice != 0) {
+      choices.push(users[i].choice);
+    }
+  }
+  io.sockets.emit('game over', {
+    choices: choices
+  });
+  var game = {
+    users: users,
+    timestamp: firebase.database.ServerValue.TIMESTAMP
+  }
+  firebase.database().ref('games').push(game);
+  for(i in users) {
+    users[i].choice = 0;
+  }
+  countChoices();
+}
+
+function findSocketIndex(id) {
+  for(i in users) {
+    if(users[i].id == id) {
+      return i;
+    }
+  }
+  return null;
+}
+
+function sendUsers() {
+  io.sockets.emit('user count', {
+    count: users.length,
+    users: users
+  });
+}

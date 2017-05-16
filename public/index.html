@@ -1,25 +1,20 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>LUPI Game</title>
   <link rel="stylesheet" href="style.css">
+  <title>LUPI Game</title>
 </head>
 <body>
-  <ul class="pages">
-    <li class="chat page">
-      <div class="chatArea">
-        <ul class="messages"></ul>
-      </div>
-      <input class="inputMessage" placeholder="Type here..." id="input" style="display:none"/>
-    </li>
-    <li class="login page">
-      <div class="form">
-        <h3 class="title">What's your name?</h3>
-        <input class="usernameInput" type="text" maxlength="14"/>
-      </div>
-    </li>
-  </ul>
+  <h1 id="header">Connecting...</h1>
+  <p>Each player picks a positive integer. The person with the lowest unique selection wins.</p>
+  <p>Once three people have entered their choices, everyone will have 30 seconds to enter or change their selection.</p>
+  <p>There <span id="users">are <b>... players</b></span> online now. There <span id="choices">are <b>... entered choices</b></span>.</p>
+  <p id="not-started" style="display:block">The timer has not started.</p><p id="timer" style="display:none">You have <b>... seconds</b>.</p>
+  <p id="no-selection">You have not entered a selection.</p><p id="selection" style="display:none">You have selected<b>...</b>.</p>
+  <input id="input" typle="number"><button id="choose-button">Enter Selection</button>
+  <p id="selections" style="display:none">The selections were:...</p>
+  <p id="winner" style="display:none">The winner was...</p>
+
 
   <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
